@@ -88,6 +88,9 @@ class DVDWMFacMixer(nn.Module):
         
         print("####### Using Decoupled DVDWMFacMixer #######")
         
+
+
+
         # === 参数配置 ===
         # 1. Z 维度
         if hasattr(args, "wm_latent_dim"):
@@ -99,7 +102,7 @@ class DVDWMFacMixer(nn.Module):
         self.use_multiple = getattr(args, "use_multiple", False)
         self.use_Zmean = getattr(args, "use_Zmean", False) # 默认为 False
         self.use_z_bias = getattr(args, "use_z_bias", True)
-        
+        self.use_wm_res = getattr(args, "use_z_bias", True)
         
         #  动态聚合开关
         self.use_dynamic_alpha = getattr(args, "use_dynamic_alpha", False)
@@ -124,6 +127,15 @@ class DVDWMFacMixer(nn.Module):
                 latent_dim=self.latent_dim,
                 attention_dim=self.latent_dim # 保持维度一致以便后续拼接
             )
+        
+
+        # =======================================================================
+        # Hypernet 0: z_local之前的自注意力
+        # =======================================================================
+        self.att_embed_dim = self.latent_dim
+        self.att_query = nn.Linear(self.latent_dim, self.att_embed_dim)
+        self.att_key = nn.Linear(self.latent_dim, self.att_embed_dim)
+        self.att_val = nn.Linear(self.latent_dim, self.att_embed_dim)
 
         # =======================================================================
         # Hypernet 1: 生成第一层权重 W1

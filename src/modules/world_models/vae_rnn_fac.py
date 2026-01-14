@@ -170,7 +170,7 @@ class FactorizedVAERNN(nn.Module):
         # # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
         # q = self.att_query(z_local_detached) # [B, T, N, Emb]
         # k = self.att_key(z_local_detached)   # [B, T, N, Emb]
-        # v = self.att_val(z_local)   # [B, T, N, Emb]
+        # v = self.att_val(z_local_detached)   # [B, T, N, Emb]
         
         # # Scaled Dot-Product Attention
         # # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
@@ -182,11 +182,20 @@ class FactorizedVAERNN(nn.Module):
         # z_attended = torch.matmul(attn_weights, v) # [B, T, N, Emb]
 
 
-        # # [修改]不要做 Mean Pooling 
-        # # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
         # z_for_mixer = z_attended  # 保持 [B, T, N, 64]
+        #  # === [核心逻辑分支: 残差连接控制] ===
+        # if self.use_wm_res:
+        #     # 方案：残差连接 (Local + Attention)
+        #     # - z_local_detached: 提供稳定的原始观测信息 (保底，防止前期崩盘/后期信息瓶颈)
+        #     # - z_attended: 提供交互上下文和显著性信息 (加速前期收敛)
+        #     z_for_mixer = z_local_detached + z_attended
+        # else:
+        #     # 兼容旧逻辑：只使用 Attention 后的特征
+        #     # 对应之前的黄色线(配合Mean) 或 红色线(配合Agent-wise直接输出)
+        #     z_for_mixer = z_attended
+        z_for_mixer = z_local_detached
         
-        # return z_for_mixer, recon_out, mu, logvar, h_out
+        return z_for_mixer, recon_out, mu, logvar, h_out
     
         # #------------------------------------------------------------------------------       
         # # --- Global Pooling ---
@@ -194,5 +203,4 @@ class FactorizedVAERNN(nn.Module):
         # # Mean Pooling 是一种对 Agent 数量不敏感的聚合方式，利于迁移学习
         # z_for_mixer = z_weighted.mean(dim=2) # [B, T, Emb]
         
-        z_for_mixer = z_local_detached
-        return z_for_mixer, recon_out, mu, logvar, h_out
+        # return z_for_mixer, recon_out, mu, logvar, h_out

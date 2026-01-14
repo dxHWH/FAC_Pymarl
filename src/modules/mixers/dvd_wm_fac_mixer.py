@@ -237,6 +237,39 @@ class DVDWMFacMixer(nn.Module):
         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)     # [B*T, 1, N]
         z = z.reshape(-1, self.n_agents, self.latent_dim)     # [B*T, N, Z_dim]
 
+        # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
+        q = self.att_query(z) # [B, T, N, Emb]
+        k = self.att_key(z)   # [B, T, N, Emb]
+        v = self.att_val(z)   # [B, T, N, Emb]
+        
+        # Scaled Dot-Product Attention
+        # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
+        scaling = self.att_embed_dim ** 0.5
+        scores = th.matmul(q, k.transpose(-2, -1)) / scaling # [B, T, N, N]
+        attn_weights = F.softmax(scores, dim=-1)
+        
+        # 加权聚合: 此时 z_weighted 中的每个 Agent 特征都融合了与之相关的其他 Agent 信息
+        z_attended = th.matmul(attn_weights, v) # [B, T, N, Emb]
+
+
+        
+        # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
+        z_for_mixer = z_attended  # 保持 [B, T, N, 64]
+
+        # === [核心逻辑分支: 残差连接控制] ===
+        if self.use_wm_res:
+            # 方案：残差连接 (Local + Attention)
+            # - z_local_detached: 提供稳定的原始观测信息 (保底，防止前期崩盘/后期信息瓶颈)
+            # - z_attended: 提供交互上下文和显著性信息 (加速前期收敛)
+            z_for_mixer = z + z_attended
+        else:
+            # 兼容旧逻辑：只使用 Attention 后的特征
+            # 对应之前的黄色线(配合Mean) 或 红色线(配合Agent-wise直接输出)
+            z_for_mixer = z_attended
+
+
+
+        z = z_for_mixer
         # ===================================================================
         # [Refactored] Global Z 生成策略
         # ===================================================================

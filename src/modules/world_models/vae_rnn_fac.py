@@ -166,27 +166,27 @@ class FactorizedVAERNN(nn.Module):
         mu = mu.reshape(b, t, n, -1)
         logvar = logvar.reshape(b, t, n, -1)
         z_local_detached = z_local.detach()
-        # --- Self-Attention Aggregation ---
-        # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
-        q = self.att_query(z_local_detached) # [B, T, N, Emb]
-        k = self.att_key(z_local_detached)   # [B, T, N, Emb]
-        v = self.att_val(z_local_detached)   # [B, T, N, Emb]
+        # # --- Self-Attention Aggregation ---
+        # # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
+        # q = self.att_query(z_local_detached) # [B, T, N, Emb]
+        # k = self.att_key(z_local_detached)   # [B, T, N, Emb]
+        # v = self.att_val(z_local)   # [B, T, N, Emb]
         
-        # Scaled Dot-Product Attention
-        # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
-        scaling = self.att_embed_dim ** 0.5
-        scores = torch.matmul(q, k.transpose(-2, -1)) / scaling # [B, T, N, N]
-        attn_weights = F.softmax(scores, dim=-1)
+        # # Scaled Dot-Product Attention
+        # # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
+        # scaling = self.att_embed_dim ** 0.5
+        # scores = torch.matmul(q, k.transpose(-2, -1)) / scaling # [B, T, N, N]
+        # attn_weights = F.softmax(scores, dim=-1)
         
-        # 加权聚合: 此时 z_weighted 中的每个 Agent 特征都融合了与之相关的其他 Agent 信息
-        z_attended = torch.matmul(attn_weights, v) # [B, T, N, Emb]
+        # # 加权聚合: 此时 z_weighted 中的每个 Agent 特征都融合了与之相关的其他 Agent 信息
+        # z_attended = torch.matmul(attn_weights, v) # [B, T, N, Emb]
 
 
-        # [修改]不要做 Mean Pooling 
-        # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
-        z_for_mixer = z_attended  # 保持 [B, T, N, 64]
+        # # [修改]不要做 Mean Pooling 
+        # # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
+        # z_for_mixer = z_attended  # 保持 [B, T, N, 64]
         
-        return z_for_mixer, recon_out, mu, logvar, h_out
+        # return z_for_mixer, recon_out, mu, logvar, h_out
     
         # #------------------------------------------------------------------------------       
         # # --- Global Pooling ---
@@ -194,4 +194,5 @@ class FactorizedVAERNN(nn.Module):
         # # Mean Pooling 是一种对 Agent 数量不敏感的聚合方式，利于迁移学习
         # z_for_mixer = z_weighted.mean(dim=2) # [B, T, Emb]
         
-        # return z_for_mixer, recon_out, mu, logvar, h_out
+        z_for_mixer = z_local_detached
+        return z_for_mixer, recon_out, mu, logvar, h_out

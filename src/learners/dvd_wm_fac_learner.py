@@ -155,8 +155,8 @@ class DVDWMFacLearner:
         # 2.4 准备 Latent Z (Deconfounding 输入)
         # z_all_rl: [RL_Batch, Seq, N, Z]
         # 必须 detach，阻断 RL 梯度回传给 WM
-        z_curr = z_all_rl[:, :-1].detach() # t=0 ~ T-1
-        z_next = z_all_rl[:, 1:].detach()  # t=1 ~ T
+        z_curr = z_all_rl[:, :-1]   # t=0 ~ T-1
+        z_next = z_all_rl[:, 1:]    # t=1 ~ T
         
         # Z-Warmup (可选)
         warmup_coef = 1.0
@@ -197,7 +197,8 @@ class DVDWMFacLearner:
             
             # Target Mixer: 传入 State[:, 1:] 和 z_next
             # 注意：rl_batch["state"] 
-            target_max_qvals = self.target_mixer(target_max_qvals, rl_batch["state"][:, 1:], z_next)
+            z_next_detached = z_next.detach()
+            target_max_qvals = self.target_mixer(target_max_qvals, rl_batch["state"][:, 1:], z_next_detached)
 
         # 2.7 Mixer Forward
         # 传入 State[:, :-1] 和 z_curr

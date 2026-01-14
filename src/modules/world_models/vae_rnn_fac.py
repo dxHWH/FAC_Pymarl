@@ -165,12 +165,12 @@ class FactorizedVAERNN(nn.Module):
         recon_out = recon_out.reshape(b, t, n, -1)
         mu = mu.reshape(b, t, n, -1)
         logvar = logvar.reshape(b, t, n, -1)
-        
+        z_local_detached = z_local.detach()
         # --- Self-Attention Aggregation ---
         # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
-        q = self.att_query(z_local) # [B, T, N, Emb]
-        k = self.att_key(z_local)   # [B, T, N, Emb]
-        v = self.att_val(z_local)   # [B, T, N, Emb]
+        q = self.att_query(z_local_detached) # [B, T, N, Emb]
+        k = self.att_key(z_local_detached)   # [B, T, N, Emb]
+        v = self.att_val(z_local_detached)   # [B, T, N, Emb]
         
         # Scaled Dot-Product Attention
         # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度

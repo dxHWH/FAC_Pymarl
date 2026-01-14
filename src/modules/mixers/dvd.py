@@ -268,130 +268,130 @@ class DVDMixer(nn.Module):
 #         return h_new # 输出 G^d, shape: (bs, heads, n_agents, hidden_dim)
 
 
-# class DVDMixer(nn.Module):
-#     """
-#     Deconfounded Value Decomposition (DVD) Mixer
-#     基于 QMIX 架构，但在 Credit Assignment (Layer 2) 引入因果推断的轨迹图
-#     """
+# # class DVDMixer(nn.Module):
+# #     """
+# #     Deconfounded Value Decomposition (DVD) Mixer
+# #     基于 QMIX 架构，但在 Credit Assignment (Layer 2) 引入因果推断的轨迹图
+# #     """
 
-#     def __init__(self, args):
-#         super(DVDMixer, self).__init__()
-#         self.args = args
-#         self.n_agents = args.n_agents
-#         self.state_dim = int(np.prod(args.state_shape))
-#         self.embed_dim = args.mixing_embed_dim
+# #     def __init__(self, args):
+# #         super(DVDMixer, self).__init__()
+# #         self.args = args
+# #         self.n_agents = args.n_agents
+# #         self.state_dim = int(np.prod(args.state_shape))
+# #         self.embed_dim = args.mixing_embed_dim
 
-#         self.abs = getattr(self.args, 'abs', True) # 单调性约束 [cite: 200]
+# #         self.abs = getattr(self.args, 'abs', True) # 单调性约束 [cite: 200]
         
-#         # DVD 参数
-#         self.rnn_hidden_dim = args.rnn_hidden_dim 
-#         self.n_heads = getattr(args, 'dvd_heads', 4) # 采样次数 D [cite: 186]
-#         self.gat_dim = getattr(args, 'gat_embed_dim', 32)
+# #         # DVD 参数
+# #         self.rnn_hidden_dim = args.rnn_hidden_dim 
+# #         self.n_heads = getattr(args, 'dvd_heads', 4) # 采样次数 D [cite: 186]
+# #         self.gat_dim = getattr(args, 'gat_embed_dim', 32)
 
-#         # --- 1. 轨迹图生成器 (G, Trajectory Graph) ---
-#         # 对应图 1(c) 中的 G 生成过程
-#         self.gat = MultiHeadGAT(self.rnn_hidden_dim, self.gat_dim, self.n_heads)
+# #         # --- 1. 轨迹图生成器 (G, Trajectory Graph) ---
+# #         # 对应图 1(c) 中的 G 生成过程
+# #         self.gat = MultiHeadGAT(self.rnn_hidden_dim, self.gat_dim, self.n_heads)
 
-#         # --- 2. 第一层混合网络 (QMIX Standard) ---
-#         # 论文提到 DVD 也可以应用于 QMIX[cite: 59], 
-#         # 这里的 Factorize 过程 (Q_local -> Q_inter) 通常保持标准 QMIX 方式
-#         # 生成 W1: (State) -> (n_agents * embed_dim)
-#         self.hyper_w_1 = nn.Linear(self.state_dim, self.n_agents * self.embed_dim)
-#         # 生成 b1: (State) -> (embed_dim)
-#         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
+# #         # --- 2. 第一层混合网络 (QMIX Standard) ---
+# #         # 论文提到 DVD 也可以应用于 QMIX[cite: 59], 
+# #         # 这里的 Factorize 过程 (Q_local -> Q_inter) 通常保持标准 QMIX 方式
+# #         # 生成 W1: (State) -> (n_agents * embed_dim)
+# #         self.hyper_w_1 = nn.Linear(self.state_dim, self.n_agents * self.embed_dim)
+# #         # 生成 b1: (State) -> (embed_dim)
+# #         self.hyper_b_1 = nn.Linear(self.state_dim, self.embed_dim)
 
-#         # --- 3. 第二层混合网络 (DVD Credit Assignment) ---
-#         # 对应论文中的 "Credit Assignment" 步骤 (公式 11-13)
-#         # 这里的 K (即 W_final) 需要由 State 和 Graph 共同决定 [cite: 168]
-#         # 公式 (11): K^d = |f_s(s) * G^d|
+# #         # --- 3. 第二层混合网络 (DVD Credit Assignment) ---
+# #         # 对应论文中的 "Credit Assignment" 步骤 (公式 11-13)
+# #         # 这里的 K (即 W_final) 需要由 State 和 Graph 共同决定 [cite: 168]
+# #         # 公式 (11): K^d = |f_s(s) * G^d|
         
-#         # 我们将 G^d 展平: (n_agents * gat_dim)
-#         # f_s(s) 需要输出一个矩阵，能把 G^d 映射为 (embed_dim, 1)
-#         # 所以 f_s(s) 输出维度: n_heads * embed_dim * (n_agents * gat_dim)
-#         self.hyper_w_final_dvd = nn.Linear(self.state_dim, 
-#                                            self.n_heads * self.embed_dim * (self.n_agents * self.gat_dim))
+# #         # 我们将 G^d 展平: (n_agents * gat_dim)
+# #         # f_s(s) 需要输出一个矩阵，能把 G^d 映射为 (embed_dim, 1)
+# #         # 所以 f_s(s) 输出维度: n_heads * embed_dim * (n_agents * gat_dim)
+# #         self.hyper_w_final_dvd = nn.Linear(self.state_dim, 
+# #                                            self.n_heads * self.embed_dim * (self.n_agents * self.gat_dim))
 
-#         # V(s): 全局状态价值偏置 (公式 14 中的 Bias 部分)
+# #         # V(s): 全局状态价值偏置 (公式 14 中的 Bias 部分)
 
-#         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
-#                                nn.ReLU(inplace=True),
-#                                nn.Linear(self.embed_dim, 1))
+# #         self.V = nn.Sequential(nn.Linear(self.state_dim, self.embed_dim),
+# #                                nn.ReLU(inplace=True),
+# #                                nn.Linear(self.embed_dim, 1))
 
-#     def forward(self, agent_qs, states, hidden_states):
-#         """
-#         Args:
-#             agent_qs: (batch, T, n_agents)
-#             states: (batch, T, state_dim)
+# #     def forward(self, agent_qs, states, hidden_states):
+# #         """
+# #         Args:
+# #             agent_qs: (batch, T, n_agents)
+# #             states: (batch, T, state_dim)
 
-#             hidden_states: (batch, T, n_agents, rnn_hidden_dim) - 用于构建图
-#         """
-#         bs = agent_qs.size(0)
-#         states = states.reshape(-1, self.state_dim)
-#         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
-#         hidden_states = hidden_states.reshape(-1, self.n_agents, self.rnn_hidden_dim)
+# #             hidden_states: (batch, T, n_agents, rnn_hidden_dim) - 用于构建图
+# #         """
+# #         bs = agent_qs.size(0)
+# #         states = states.reshape(-1, self.state_dim)
+# #         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)
+# #         hidden_states = hidden_states.reshape(-1, self.n_agents, self.rnn_hidden_dim)
 
-#         # -----------------------------------------------------------
-#         # Step 1: 标准 QMIX 第一层 (Mixing)
-#         # Q_tot = W2 * (W1 * Q + b1) + V
-#         # 这里计算 Q_inter = W1 * Q + b1
-#         # -----------------------------------------------------------
+# #         # -----------------------------------------------------------
+# #         # Step 1: 标准 QMIX 第一层 (Mixing)
+# #         # Q_tot = W2 * (W1 * Q + b1) + V
+# #         # 这里计算 Q_inter = W1 * Q + b1
+# #         # -----------------------------------------------------------
         
-#         # 生成 W1: (bs*T, n_agents, embed_dim)
-#         w1 = th.abs(self.hyper_w_1(states)) if self.abs else self.hyper_w_1(states)
-#         w1 = w1.view(-1, self.n_agents, self.embed_dim)
+# #         # 生成 W1: (bs*T, n_agents, embed_dim)
+# #         w1 = th.abs(self.hyper_w_1(states)) if self.abs else self.hyper_w_1(states)
+# #         w1 = w1.view(-1, self.n_agents, self.embed_dim)
         
-#         # 生成 b1: (bs*T, 1, embed_dim)
-#         b1 = self.hyper_b_1(states).view(-1, 1, self.embed_dim)
+# #         # 生成 b1: (bs*T, 1, embed_dim)
+# #         b1 = self.hyper_b_1(states).view(-1, 1, self.embed_dim)
         
-#         # 计算中间层 hidden: (bs*T, 1, embed_dim)
-#         # 公式 (17): Q_inter = W * Q_local [cite: 587]
-#         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
+# #         # 计算中间层 hidden: (bs*T, 1, embed_dim)
+# #         # 公式 (17): Q_inter = W * Q_local [cite: 587]
+# #         hidden = F.elu(th.bmm(agent_qs, w1) + b1)
 
-#         # -----------------------------------------------------------
-#         # Step 2: DVD Credit Assignment (计算 K / W_final)
-#         # -----------------------------------------------------------
+# #         # -----------------------------------------------------------
+# #         # Step 2: DVD Credit Assignment (计算 K / W_final)
+# #         # -----------------------------------------------------------
         
-#         # 2.1 生成轨迹图 G^d (公式 8-10)
-#         # graphs_out: (bs*T, heads, n_agents, gat_dim)
-#         graphs_out = self.gat(hidden_states)
+# #         # 2.1 生成轨迹图 G^d (公式 8-10)
+# #         # graphs_out: (bs*T, heads, n_agents, gat_dim)
+# #         graphs_out = self.gat(hidden_states)
         
-#         # 展平 Graph 以便进行矩阵运算: (bs*T, heads, n_agents * gat_dim, 1)
-#         # 这里我们将图特征视为一个整体向量
-#         graphs_flat = graphs_out.reshape(-1, self.n_heads, self.n_agents * self.gat_dim, 1)
+# #         # 展平 Graph 以便进行矩阵运算: (bs*T, heads, n_agents * gat_dim, 1)
+# #         # 这里我们将图特征视为一个整体向量
+# #         graphs_flat = graphs_out.reshape(-1, self.n_heads, self.n_agents * self.gat_dim, 1)
 
-#         # 2.2 生成状态表示 f_s(s) (公式 11 中的 f_s)
-#         # weights_dvd: (bs*T, heads, embed_dim, n_agents * gat_dim)
-#         weights_dvd = self.hyper_w_final_dvd(states)
-#         weights_dvd = weights_dvd.view(-1, self.n_heads, self.embed_dim, self.n_agents * self.gat_dim)
+# #         # 2.2 生成状态表示 f_s(s) (公式 11 中的 f_s)
+# #         # weights_dvd: (bs*T, heads, embed_dim, n_agents * gat_dim)
+# #         weights_dvd = self.hyper_w_final_dvd(states)
+# #         weights_dvd = weights_dvd.view(-1, self.n_heads, self.embed_dim, self.n_agents * self.gat_dim)
 
-#         # 2.3 计算 Credits K^d (公式 11)
-#         # K^d = |f_s(s) * G^d|
-#         # Matmul: (heads, embed, agent*gat) @ (heads, agent*gat, 1) -> (heads, embed, 1)
-#         k_d = th.matmul(weights_dvd, graphs_flat)
+# #         # 2.3 计算 Credits K^d (公式 11)
+# #         # K^d = |f_s(s) * G^d|
+# #         # Matmul: (heads, embed, agent*gat) @ (heads, agent*gat, 1) -> (heads, embed, 1)
+# #         k_d = th.matmul(weights_dvd, graphs_flat)
 
-#         # 2.4 后门调整/平均化 (公式 12)
-#         # K = Mean(K^d)
-#         # w_final: (bs*T, embed_dim, 1)
-#         w_final = k_d.mean(dim=1) 
+# #         # 2.4 后门调整/平均化 (公式 12)
+# #         # K = Mean(K^d)
+# #         # w_final: (bs*T, embed_dim, 1)
+# #         w_final = k_d.mean(dim=1) 
         
-#         # 绝对值约束 (Monotonicity) [cite: 200]
-#         if self.abs:
-#             w_final = th.abs(w_final)
+# #         # 绝对值约束 (Monotonicity) [cite: 200]
+# #         if self.abs:
+# #             w_final = th.abs(w_final)
 
-#         # -----------------------------------------------------------
-#         # Step 3: 最终聚合
-#         # -----------------------------------------------------------
+# #         # -----------------------------------------------------------
+# #         # Step 3: 最终聚合
+# #         # -----------------------------------------------------------
         
-#         # 生成全局 V(s)
-#         v = self.V(states).view(-1, 1, 1)
+# #         # 生成全局 V(s)
+# #         v = self.V(states).view(-1, 1, 1)
         
-#         # 计算 Q_tot (公式 13)
-#         # Q_tot = Sum(K * Q_inter) + V
-#         # bmm: (bs*T, 1, embed) @ (bs*T, embed, 1) -> (bs*T, 1, 1)
+# #         # 计算 Q_tot (公式 13)
+# #         # Q_tot = Sum(K * Q_inter) + V
+# #         # bmm: (bs*T, 1, embed) @ (bs*T, embed, 1) -> (bs*T, 1, 1)
 
-#         y = th.bmm(hidden, w_final) + v
+# #         y = th.bmm(hidden, w_final) + v
         
-#         # 重塑回 (batch, T, 1)
-#         q_tot = y.view(bs, -1, 1)
+# #         # 重塑回 (batch, T, 1)
+# #         q_tot = y.view(bs, -1, 1)
         
-#         return q_tot
+# #         return q_tot

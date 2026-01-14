@@ -144,7 +144,7 @@ class DVDWMFacLearner:
 
         # 3. Mixer: 传入 State[:, :-1] 和 z_curr (Agent-wise Z)
         # Mixer 内部会处理 [B, T, N, Z] 的维度
-        chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1], z_curr)
+        chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1], z_curr.detach())
 
         # 4. TD Error
         targets = build_td_lambda_targets(rewards, terminated, mask, target_max_qvals, 

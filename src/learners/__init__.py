@@ -29,27 +29,6 @@ from .dvd_wm_fac_learner import DVDWMFacLearner
 REGISTRY = {}
 
 REGISTRY["q_learner"] = QLearner
-REGISTRY["coma_learner"] = COMALearner
-REGISTRY["qtran_learner"] = QTranLearner
-REGISTRY["ppo_learner"] = PPOLearner
-REGISTRY["lica_learner"] = LICALearner
-REGISTRY["nq_learner"] = NQLearner
-REGISTRY["policy_gradient_v2"] = PGLearner_v2
-REGISTRY["max_q_learner"] = MAXQLearner
-REGISTRY["dmaq_qatten_learner"] = DMAQ_qattenLearner
-REGISTRY["offpg_learner"] = OffPGLearner
-REGISTRY["fmac_learner"] = FMACLearner
-# REGISTRY["cf_learner"] = CF_Learner
-# REGISTRY["q_with_action_attention_learner"]
-REGISTRY["nq_vae_learner"] = NQLearnerVAE
 
-REGISTRY["dvd_learner"] = DVDNQLearner
-REGISTRY["dvd_wm_learner"] = DVDWMLearner # <--- 新增
-REGISTRY["dvd_rssm_learner"] = DVDRssmLearner
-REGISTRY["dvd_rssm_learner_origin"] = DVDRssmLearnerOrigin
-REGISTRY["dvd_wm_atten_learner"] = DVDWMAttenLearner
-REGISTRY["dvd_wm_causal_learner"] = DVDWMCausalLearner
-REGISTRY["dvd_wm_fac_learner"] = DVDWMFacLearner
-# REGISTRY["wm_fac_learner"] = WMFacLearner
 
 

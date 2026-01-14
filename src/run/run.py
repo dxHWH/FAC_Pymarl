@@ -212,13 +212,20 @@ def run_sequential(args, logger):
             episode_batch = runner.run(test_mode=False)
             buffer.insert_episode_batch(episode_batch)#ep*batch_run
         # 若轨迹数量支持采样一批batch，则训练
-        if buffer.can_sample(args.batch_size):#这里的batch_size=n,则采样n条轨迹，共包含n*episode.max_t_filled()时间步
+        
+        ######################################双bs采样修改##########################################
+        smple_batch_size = args.batch_size
+        if(args.use_dual):
+            smple_batch_size =  args.wm_batch_size
+        ###########################################################################################
+
+        
+        if buffer.can_sample(smple_batch_size):#这里的batch_size=n,则采样n条轨迹，共包含n*episode.max_t_filled()时间步
+
             next_episode = episode + args.batch_size_run
             if args.accumulated_episodes and next_episode % args.accumulated_episodes != 0:
                 continue
-
-            episode_sample = buffer.sample(args.batch_size)#采样batch_size条轨迹
-
+            episode_sample = buffer.sample(smple_batch_size)#采样batch_size条轨迹
             # Truncate batch to only filled timesteps
             # 数据处理，对齐，将所有轨迹的长度都变成相同（时间步=当前bs内最长那条轨迹的长度），便于神经网络处理，多出来的部分通过掩码mask掉
             max_ep_t = episode_sample.max_t_filled()

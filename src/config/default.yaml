@@ -86,3 +86,8 @@ vae_kl_anneal_duration_t: 150000  # (在 100k 到 500k 步之间, beta 从 0 增
 #消融实验：
 use_ablation: False  # 是否使用消融实验
 
+
+
+#是否使用双bs训练
+use_dual: True
+

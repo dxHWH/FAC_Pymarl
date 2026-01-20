@@ -1,8 +1,8 @@
 import copy
 from components.episode_buffer import EpisodeBatch
-from modules.mixers.nmix import Mixer       # QMIX
-from modules.mixers.vdn import VDNMixer     # VDN
-from modules.mixers.qatten import QattenMixer # Qatten
+# from modules.mixers.nmix import Mixer       # QMIX
+# from modules.mixers.vdn import VDNMixer     # VDN
+# from modules.mixers.qatten import QattenMixer # Qatten
 from modules.mixers.dvd import DVDMixer 
 from envs.matrix_game import print_matrix_status
 from utils.rl_utils import build_td_lambda_targets, build_q_lambda_targets

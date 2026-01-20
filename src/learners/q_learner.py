@@ -1,6 +1,6 @@
 import copy
 from components.episode_buffer import EpisodeBatch
-from modules.mixers.vdn import VDNMixer
+# from modules.mixers.vdn import VDNMixer
 from modules.mixers.qmix import QMixer
 from utils.rl_utils import build_td_lambda_targets
 from envs.matrix_game import print_matrix_status

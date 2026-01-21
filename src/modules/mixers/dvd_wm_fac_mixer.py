@@ -60,6 +60,19 @@ class StateAttentionZ(nn.Module):
         return z_aggregated.squeeze(1)
 
 
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        nn.init.orthogonal_(m.weight) # 正交初始化
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)
+    elif isinstance(m, nn.GRU):
+        for name, param in m.named_parameters():
+            if 'weight' in name:
+                nn.init.orthogonal_(param)
+            elif 'bias' in name:
+                nn.init.constant_(param, 0)
+
+
 
 class DVDWMFacMixer(nn.Module):
     def __init__(self, args):
@@ -142,8 +155,14 @@ class DVDWMFacMixer(nn.Module):
         # =======================================================================
         if self.use_multiple:
             # === 模式 A: 乘法调制 ===
+            # self.hyper_w_1 = nn.Sequential(
+            #     nn.Linear(self.state_dim, args.hypernet_hidden_dim),
+            #     nn.ReLU(),
+            #     nn.Linear(args.hypernet_hidden_dim, self.embed_dim * self.n_agents)
+            # )
             self.hyper_w_1 = nn.Sequential(
                 nn.Linear(self.state_dim, args.hypernet_hidden_dim),
+                nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                 nn.ReLU(),
                 nn.Linear(args.hypernet_hidden_dim, self.embed_dim * self.n_agents)
             )
@@ -172,6 +191,7 @@ class DVDWMFacMixer(nn.Module):
                 self.hyper_input_dim = self.state_dim + self.latent_dim
                 self.hyper_w_1 = nn.Sequential(
                     nn.Linear(self.hyper_input_dim, args.hypernet_hidden_dim),
+                    nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                     nn.ReLU(),
                     nn.Linear(args.hypernet_hidden_dim, self.embed_dim * self.n_agents)
                 )
@@ -197,6 +217,7 @@ class DVDWMFacMixer(nn.Module):
         if self.use_multiple:
             self.hyper_w_2 = nn.Sequential(
                 nn.Linear(self.state_dim, args.hypernet_hidden_dim),
+                nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                 nn.ReLU(),
                 nn.Linear(args.hypernet_hidden_dim, self.embed_dim)
             )
@@ -204,6 +225,7 @@ class DVDWMFacMixer(nn.Module):
             w2_input_dim = self.state_dim if getattr(self.args, "use_single", False) else self.state_dim + self.latent_dim
             self.hyper_w_2 = nn.Sequential(
                 nn.Linear(w2_input_dim, args.hypernet_hidden_dim),
+                nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                 nn.ReLU(),
                 nn.Linear(args.hypernet_hidden_dim, self.embed_dim)
             )
@@ -213,9 +235,12 @@ class DVDWMFacMixer(nn.Module):
         # =======================================================================
         self.hyper_b_2 = nn.Sequential(
             nn.Linear(self.bias_input_dim, self.embed_dim),
+            nn.LayerNorm(self.embed_dim),
             nn.ReLU(),
             nn.Linear(self.embed_dim, 1)
         )
+        # 在 __init__ 最后调用
+        self.apply(init_weights)
 
     def update_alpha(self, t_total):
         """

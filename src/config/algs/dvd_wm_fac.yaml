@@ -58,5 +58,6 @@ use_dual: True
 wm_batch_size: 256
 rl_batch_size: 128
 batch_size: 128
+
 gamma: 0.99
 

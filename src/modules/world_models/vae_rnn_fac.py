@@ -70,7 +70,7 @@ class FactorizedVAERNN(nn.Module):
         self.decoder_fc = nn.Linear(self.latent_dim + self.n_agents, self.hidden_dim)
         self.decoder_out = nn.Linear(self.hidden_dim, output_shape)
 
-        self.apply(init_weights)
+        # self.apply(init_weights)
         # ===================================================================
         # 3. Attention Aggregator (Proxy Confounder Generator)
         # ===================================================================

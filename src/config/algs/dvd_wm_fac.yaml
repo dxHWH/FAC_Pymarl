@@ -48,7 +48,8 @@ use_single: False
 
 use_multiple: False  # 开关 CMIX 乘法模式
 cmix_beta: 0.1      # CMIX 论文中的缩放超参
-use_Zmean: False #agent wise
+use_Zmean: False #agent wsise
+use_Zatten: True
 use_wm_res: True
 use_dynamic_alpha: False
 alpha_anneal_time: 1000000

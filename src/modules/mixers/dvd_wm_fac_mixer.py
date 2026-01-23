@@ -115,7 +115,8 @@ class DVDWMFacMixer(nn.Module):
         self.use_multiple = getattr(args, "use_multiple", False)
         self.use_Zmean = getattr(args, "use_Zmean", False) # 默认为 False
         self.use_z_bias = getattr(args, "use_z_bias", True)
-        self.use_wm_res = getattr(args, "use_z_bias", True)
+        self.use_wm_res = getattr(args, "use_wm_res", True)
+        self.use_Zatten = getattr(args, "use_Zatten", False)
         
         #  动态聚合开关
         self.use_dynamic_alpha = getattr(args, "use_dynamic_alpha", False)
@@ -133,6 +134,7 @@ class DVDWMFacMixer(nn.Module):
         print(f"Config: use_multiple={self.use_multiple}, use_Zmean={self.use_Zmean}")
         print(f"Config: use_dynamic_alpha={self.use_dynamic_alpha}, duration={self.alpha_duration}")
         print(f"Config: use_cross_atten_mix={ self.use_cross_atten_mix}")
+        print(f"Config: use_Zatten={ self.use_Zatten}")
         if self.use_cross_atten_mix:
             # 直接实例化我们定义的模块
             self.cross_attn = StateAttentionZ(
@@ -191,7 +193,7 @@ class DVDWMFacMixer(nn.Module):
                 self.hyper_input_dim = self.state_dim + self.latent_dim
                 self.hyper_w_1 = nn.Sequential(
                     nn.Linear(self.hyper_input_dim, args.hypernet_hidden_dim),
-                    nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
+                    # nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                     nn.ReLU(),
                     nn.Linear(args.hypernet_hidden_dim, self.embed_dim * self.n_agents)
                 )
@@ -201,6 +203,7 @@ class DVDWMFacMixer(nn.Module):
                 self.hyper_input_dim = self.state_dim + self.latent_dim
                 self.hyper_w_1 = nn.Sequential(
                     nn.Linear(self.hyper_input_dim, args.hypernet_hidden_dim),
+                    # nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                     nn.ReLU(),
                     nn.Linear(args.hypernet_hidden_dim, self.embed_dim)
                 )
@@ -225,7 +228,7 @@ class DVDWMFacMixer(nn.Module):
             w2_input_dim = self.state_dim if getattr(self.args, "use_single", False) else self.state_dim + self.latent_dim
             self.hyper_w_2 = nn.Sequential(
                 nn.Linear(w2_input_dim, args.hypernet_hidden_dim),
-                nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
+                # nn.LayerNorm(args.hypernet_hidden_dim),  # <--- [新增] 稳定隐层分布
                 nn.ReLU(),
                 nn.Linear(args.hypernet_hidden_dim, self.embed_dim)
             )
@@ -235,12 +238,12 @@ class DVDWMFacMixer(nn.Module):
         # =======================================================================
         self.hyper_b_2 = nn.Sequential(
             nn.Linear(self.bias_input_dim, self.embed_dim),
-            nn.LayerNorm(self.embed_dim),
+            # nn.LayerNorm(self.embed_dim),
             nn.ReLU(),
             nn.Linear(self.embed_dim, 1)
         )
         # 在 __init__ 最后调用
-        self.apply(init_weights)
+        # self.apply(init_weights)
 
     def update_alpha(self, t_total):
         """
@@ -273,36 +276,40 @@ class DVDWMFacMixer(nn.Module):
         states = states.reshape(-1, self.state_dim)           # [B*T, S_dim]
         agent_qs = agent_qs.reshape(-1, 1, self.n_agents)     # [B*T, 1, N]
         z = z.reshape(-1, self.n_agents, self.latent_dim)     # [B*T, N, Z_dim]
-
-        # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
-        q = self.att_query(z) # [B, T, N, Emb]
-        k = self.att_key(z)   # [B, T, N, Emb]
-        v = self.att_val(z)   # [B, T, N, Emb]
+        z_for_mixer = z
         
-        # Scaled Dot-Product Attention
-        # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
-        scaling = self.att_embed_dim ** 0.5
-        scores = th.matmul(q, k.transpose(-2, -1)) / scaling # [B, T, N, N]
-        attn_weights = F.softmax(scores, dim=-1)
-        
-        # 加权聚合: 此时 z_weighted 中的每个 Agent 特征都融合了与之相关的其他 Agent 信息
-        z_attended = th.matmul(attn_weights, v) # [B, T, N, Emb]
+        if(self.use_Zatten):
+            # 计算 Agent 间的动力学相关性，生成全局 Proxy Confounder
+            q = self.att_query(z) # [B, T, N, Emb]
+            k = self.att_key(z)   # [B, T, N, Emb]
+            v = self.att_val(z)   # [B, T, N, Emb]
+            
+            # Scaled Dot-Product Attention
+            # attention_score(i, j) 表示 Agent i 和 Agent j 在动力学上的关联程度
+            scaling = self.att_embed_dim ** 0.5
+            scores = th.matmul(q, k.transpose(-2, -1)) / scaling # [B, T, N, N]
+            attn_weights = F.softmax(scores, dim=-1)
+            
+            # 加权聚合: 此时 z_weighted 中的每个 Agent 特征都融合了与之相关的其他 Agent 信息
+            z_attended = th.matmul(attn_weights, v) # [B, T, N, Emb]
 
-
-        
-        # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
-        z_for_mixer = z_attended  # 保持 [B, T, N, 64]
+             # 我们直接把每个 Agent 的 Z 给 Mixer，让 Mixer 自己决定怎么用
+            z_for_mixer = z_attended  # 保持 [B, T, N, 64]
 
         # === [核心逻辑分支: 残差连接控制] ===
         if self.use_wm_res:
             # 方案：残差连接 (Local + Attention)
             # - z_local_detached: 提供稳定的原始观测信息 (保底，防止前期崩盘/后期信息瓶颈)
             # - z_attended: 提供交互上下文和显著性信息 (加速前期收敛)
+            
             z_for_mixer = z + z_attended
         else:
-            # 兼容旧逻辑：只使用 Attention 后的特征
-            # 对应之前的黄色线(配合Mean) 或 红色线(配合Agent-wise直接输出)
-            z_for_mixer = z_attended
+            if self.use_Zatten:
+                # 兼容旧逻辑：只使用 Attention 后的特征
+                # 对应之前的黄色线(配合Mean) 或 红色线(配合Agent-wise直接输出)
+                z_for_mixer = z_attended
+            else:
+                z_for_mixer = z
 
 
 
@@ -370,6 +377,8 @@ class DVDWMFacMixer(nn.Module):
             else:
                 # [Static Local]
                 states_expanded = states.unsqueeze(1).expand(-1, self.n_agents, -1)
+                #print(states)
+                #print(z)
                 hyper_input = th.cat([states_expanded, z], dim=-1)
                 w1 = th.abs(self.hyper_w_1(hyper_input))
 
